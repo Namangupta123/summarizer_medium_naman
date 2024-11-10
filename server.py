@@ -25,7 +25,7 @@ CORS(app, resources={
         "max_age": 3600
     }
 })
-CORS(app)
+# CORS(app)
 
 mistral_key = os.getenv("mistral_key")
 os.environ["LANGCHAIN_TRACING_V2"]="true"
