@@ -52,7 +52,7 @@ Output
 Please ensure that the summary is accurate and reflects the original content's intent.
 """
 
-llm = ChatMistralAI(model="mistral-large-latest", temperature=0.6, mistral_api_key=mistral_key, max_tokens=5000)
+llm = ChatMistralAI(model="mistral-large-latest", temperature=0.5, mistral_api_key=mistral_key, max_tokens=2000)
 prompt = ChatPromptTemplate.from_messages([
     ("system", "You are an AI summarization expert. Your primary function is to distill complex information into clear, concise summaries while maintaining the original intent and key details. Use a neutral and informative tone."),
     ("human", template),
@@ -62,7 +62,8 @@ def verify_google_token(token):
     try:
         response = http_requests.get(
             'https://oauth2.googleapis.com/tokeninfo',
-            params={'access_token': token}
+            params={'access_token': token},
+            timeout=10
         )
         if response.status_code != 200:
             return None
