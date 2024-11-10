@@ -34,5 +34,11 @@
           }
         ]
       }
-    ]
+    ],
+    "functions": {
+        "server.py": {
+            "memory": 1024,
+            "maxDuration": 60
+        }
+    }
   }

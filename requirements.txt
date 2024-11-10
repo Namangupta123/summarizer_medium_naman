@@ -5,3 +5,4 @@ langchain-mistralai
 python-dotenv
 google-auth
 PyJWT
+Werkzeug

@@ -12,8 +12,10 @@ import jwt
 from google.oauth2 import id_token
 from google.auth.transport import requests
 import requests as http_requests 
+from werkzeug.serving import WSGIRequestHandler
 load_dotenv()
 
+WSGIRequestHandler.protocol_version = "HTTP/1.1"
 app = Flask(__name__)
 CORS(app, 
      resources={r"/*": {"origins": "*"}},
@@ -120,4 +122,4 @@ def summarize():
         return jsonify({"error": str(e)}), 500
     
 if __name__ == "__main__":
-    app.run(port=5000)
+    app.run(host='0.0.0.0', port=5000, threaded=True, timeout=180)
