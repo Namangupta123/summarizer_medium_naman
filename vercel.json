@@ -5,10 +5,8 @@
             "src": "server.py",
             "use": "@vercel/python",
             "config": {
-                "maxLambdaSize": "15mb",
-                "maxDuration": 55
-            },
-            "maxDuration": 55
+                "maxLambdaSize": "15mb"
+            }
         }
     ],
     "rewrites": [

@@ -48,6 +48,7 @@ Output
 - Main Ideas: AI advancements bring both opportunities and challenges.
 - Efficiency and Innovation: AI offers increased efficiency and innovative solutions.
 - Concerns: Raises questions about job displacement and ethical implications.
+- Don't give the output in readme format. 
 
 Please ensure that the summary is accurate and reflects the original content's intent.
 """
