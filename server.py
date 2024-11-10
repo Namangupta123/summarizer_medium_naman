@@ -62,8 +62,7 @@ def verify_google_token(token):
     try:
         response = http_requests.get(
             'https://oauth2.googleapis.com/tokeninfo',
-            params={'access_token': token},
-            timeout=10
+            params={'access_token': token}
         )
         if response.status_code != 200:
             return None
