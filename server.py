@@ -98,7 +98,7 @@ def verify_token(f):
         return f(*args, **kwargs)
     return decorated
 
-@app.route('/summarize', methods=['POST'])
+@app.route('/summarize', methods=['POST', 'OPTIONS'])
 @verify_token
 def summarize():
     try:
