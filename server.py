@@ -17,10 +17,12 @@ load_dotenv()
 app = Flask(__name__)
 CORS(app, resources={
     r"/*": {
-        "origins": ["chrome-extension://*"],
-        "supports_credentials": True,
+        "origins": "*",
         "methods": ["GET", "POST", "OPTIONS"],
-        "allow_headers": ["Authorization", "Content-Type"]
+        "allow_headers": ["Content-Type", "Authorization"],
+        "expose_headers": ["Content-Type", "Authorization"],
+        "supports_credentials": True,
+        "max_age": 3600
     }
 })
 CORS(app)
@@ -98,9 +100,24 @@ def verify_token(f):
         return f(*args, **kwargs)
     return decorated
 
+@app.route('/')
+def home():
+    return jsonify({"status": "alive", "message": "Medium Summarizer API is running"})
+
+@app.after_request
+def after_request(response):
+    response.headers.add('Access-Control-Allow-Origin', '*')
+    response.headers.add('Access-Control-Allow-Headers', 'Content-Type,Authorization')
+    response.headers.add('Access-Control-Allow-Methods', 'GET,PUT,POST,DELETE,OPTIONS')
+    response.headers.add('Access-Control-Allow-Credentials', 'true')
+    return response
+
 @app.route('/summarize', methods=['POST', 'OPTIONS'])
 @verify_token
 def summarize():
+    if request.method == 'OPTIONS':
+        return '', 204
+    
     try:
         content = request.json['content']
         print(content)
