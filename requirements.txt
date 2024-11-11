@@ -1,7 +1,7 @@
 flask
 flask-cors
 langchain-core
-langchain-mistralai
+langchain-openai
 python-dotenv
 google-auth
 PyJWT

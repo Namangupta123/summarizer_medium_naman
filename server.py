@@ -13,6 +13,7 @@ from google.oauth2 import id_token
 from google.auth.transport import requests
 import requests as http_requests 
 from werkzeug.serving import WSGIRequestHandler
+from langchain_openai import AzureChatOpenAI
 load_dotenv()
 
 WSGIRequestHandler.protocol_version = "HTTP/1.1"
@@ -23,11 +24,16 @@ CORS(app,
      methods=["GET", "POST", "OPTIONS"],
      max_age=3600)
 
-mistral_key = os.getenv("mistral_key")
+# mistral_key = os.getenv("mistral_key")
+openai_endpoint=os.getenv("openai_endpoint")
+openai_api_key=os.getenv("openai_api_key")
 os.environ["LANGCHAIN_TRACING_V2"]="true"
 os.environ["LANGCHAIN_ENDPOINT"]=os.getenv("LANGSMITH_ENDPOINT")
 os.environ["LANGCHAIN_API_KEY"]=os.getenv("LANGSMITH_API")
 os.environ["LANGCHAIN_PROJECT"]=os.getenv("LANGSMITH_PROJECT")
+os.environ["OPENAI_API_VERSION"] = "2024-08-01-preview"
+os.environ["AZURE_OPENAI_ENDPOINT"] = openai_endpoint
+os.environ["AZURE_OPENAI_API_KEY"] = openai_api_key
 template = """
 You are an AI summarization agent tasked with summarizing the provided content. Your goal is to create a concise and informative summary that highlights the key points and important notes. Please follow these instructions:
 
@@ -53,7 +59,17 @@ Output
 Please ensure that the summary is accurate and reflects the original content's intent.
 """
 
-llm = ChatMistralAI(model="mistral-large-latest", temperature=0.5, mistral_api_key=mistral_key, max_tokens=2000)
+#llm = ChatMistralAI(model="mistral-large-latest", temperature=0.5, mistral_api_key=mistral_key, max_tokens=2000)
+llm = AzureChatOpenAI(
+    openai_api_version="2024-08-01-preview",
+    azure_endpoint=openai_endpoint,
+    openai_api_key=openai_api_key,
+    deployment_name="gpt-4",
+    temperature=0.7,
+    max_retries=1,
+    max_tokens=900,
+    model_version="turbo-2024-04-09",
+)
 prompt = ChatPromptTemplate.from_messages([
     ("system", "You are an AI summarization expert. Your primary function is to distill complex information into clear, concise summaries while maintaining the original intent and key details. Use a neutral and informative tone."),
     ("human", template),
