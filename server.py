@@ -2,11 +2,9 @@ from flask import Flask, request, jsonify
 import json
 from flask_cors import CORS
 from langchain_core.prompts import ChatPromptTemplate
-from langchain_core.output_parsers import StrOutputParser 
-# from langchain_mistralai import ChatMistralAI
+from langchain_core.output_parsers import StrOutputParser
 import os
 from dotenv import load_dotenv
-import traceback
 from functools import wraps
 import jwt
 from google.oauth2 import id_token
@@ -24,7 +22,6 @@ CORS(app,
      methods=["GET", "POST", "OPTIONS"],
      max_age=3600)
 
-# mistral_key = os.getenv("mistral_key")
 openai_endpoint=os.getenv("OPENAI_ENDPOINT")
 openai_api=os.getenv("OPENAI_API")
 os.environ["LANGCHAIN_TRACING_V2"]="true"
@@ -36,31 +33,24 @@ os.environ["AZURE_OPENAI_ENDPOINT"] = os.getenv("OPENAI_ENDPOINT")
 os.environ["AZURE_OPENAI_API_KEY"] = os.getenv("OPENAI_API")
 
 template = """
-You are an AI summarization agent tasked with summarizing the provided content. Your goal is to create a concise and informative summary that highlights the key points and important notes. Please follow these instructions:
+You are an expert summarization AI. Your role is to distill complex information into clear, concise summaries that capture the essence of the content.
 
-Instructions
-1. Content Analysis: Carefully read and analyze the provided content.
-2. Summary Creation: Write a summary that captures the main ideas and essential details. Ensure the summary is clear and concise.
-3. Important Notes: Identify and list any critical notes or insights that should be emphasized.
-4. Bullet Points: Present the summary and notes using bullet points for clarity and easy reading.
+### Instructions
+1. **Content Analysis**: Carefully read and analyze the provided content.
+2. **Summary Creation**: Write a summary that captures the main ideas and essential details. Ensure the summary is clear and concise.
+3. **Important Notes**: Identify and list any critical notes or insights that should be emphasized.
+4. **Bullet Points**: Present the summary and notes using bullet points for clarity and easy reading.
 
-Input Variables
+### Input
 - {content}: The text or document you want summarized.
 
-Example:
-Input
-{content}: "The rapid advancement of artificial intelligence has sparked both excitement and concern across various industries. While AI promises increased efficiency and innovative solutions, it also raises questions about job displacement and ethical implications."
-
-Output
-- Main Ideas: AI advancements bring both opportunities and challenges.
-- Efficiency and Innovation: AI offers increased efficiency and innovative solutions.
-- Concerns: Raises questions about job displacement and ethical implications.
-- Don't give the output in readme format. 
+### Examples
+- **Example 1**: Given a text about climate change, summarize the main causes and effects in bullet points.
+- **Example 2**: For a document on the history of the internet, highlight key milestones and technological advancements.
 
 Please ensure that the summary is accurate and reflects the original content's intent.
 """
 
-#llm = ChatMistralAI(model="mistral-large-latest", temperature=0.5, mistral_api_key=mistral_key, max_tokens=2000)
 llm = AzureChatOpenAI(
     openai_api_version="2024-08-01-preview",
     azure_endpoint=openai_endpoint,
