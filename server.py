@@ -26,14 +26,14 @@ CORS(app,
 
 # mistral_key = os.getenv("mistral_key")
 openai_endpoint=os.getenv("openai_endpoint")
-openai_api_key=os.getenv("openai_api_key")
+openai_api=os.getenv("openai_api_key")
 os.environ["LANGCHAIN_TRACING_V2"]="true"
 os.environ["LANGCHAIN_ENDPOINT"]=os.getenv("LANGSMITH_ENDPOINT")
 os.environ["LANGCHAIN_API_KEY"]=os.getenv("LANGSMITH_API")
 os.environ["LANGCHAIN_PROJECT"]=os.getenv("LANGSMITH_PROJECT")
 os.environ["OPENAI_API_VERSION"] = "2024-08-01-preview"
 os.environ["AZURE_OPENAI_ENDPOINT"] = openai_endpoint
-os.environ["AZURE_OPENAI_API_KEY"] = openai_api_key
+os.environ["AZURE_OPENAI_API_KEY"] = openai_api
 template = """
 You are an AI summarization agent tasked with summarizing the provided content. Your goal is to create a concise and informative summary that highlights the key points and important notes. Please follow these instructions:
 
@@ -63,7 +63,7 @@ Please ensure that the summary is accurate and reflects the original content's i
 llm = AzureChatOpenAI(
     openai_api_version="2024-08-01-preview",
     azure_endpoint=openai_endpoint,
-    openai_api_key=openai_api_key,
+    openai_api_key=openai_api,
     deployment_name="gpt-4",
     temperature=0.7,
     max_retries=1,
