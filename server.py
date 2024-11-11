@@ -25,15 +25,16 @@ CORS(app,
      max_age=3600)
 
 # mistral_key = os.getenv("mistral_key")
-openai_endpoint=os.getenv("openai_endpoint")
-openai_api=os.getenv("openai_api_key")
+openai_endpoint=os.getenv("OPENAI_ENDPOINT")
+openai_api=os.getenv("OPENAI_API")
 os.environ["LANGCHAIN_TRACING_V2"]="true"
 os.environ["LANGCHAIN_ENDPOINT"]=os.getenv("LANGSMITH_ENDPOINT")
 os.environ["LANGCHAIN_API_KEY"]=os.getenv("LANGSMITH_API")
 os.environ["LANGCHAIN_PROJECT"]=os.getenv("LANGSMITH_PROJECT")
 os.environ["OPENAI_API_VERSION"] = "2024-08-01-preview"
-os.environ["AZURE_OPENAI_ENDPOINT"] = openai_endpoint
-os.environ["AZURE_OPENAI_API_KEY"] = openai_api
+os.environ["AZURE_OPENAI_ENDPOINT"] = os.getenv("OPENAI_ENDPOINT")
+os.environ["AZURE_OPENAI_API_KEY"] = os.getenv("OPENAI_API")
+
 template = """
 You are an AI summarization agent tasked with summarizing the provided content. Your goal is to create a concise and informative summary that highlights the key points and important notes. Please follow these instructions:
 
