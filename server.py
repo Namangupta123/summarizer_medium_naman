@@ -39,7 +39,9 @@ POSTGRES_URL = os.getenv('POSTGRES_URL')
 if not POSTGRES_URL:
     raise ValueError("POSTGRES_URL environment variable is not set")
 
-engine = create_engine(POSTGRES_URL, pool_pre_ping=True)
+# Modify the URL to use postgresql instead of postgres
+POSTGRES_URL = POSTGRES_URL.replace('postgres://', 'postgresql://')
+engine = create_engine(POSTGRES_URL)
 
 # Create users table if it doesn't exist
 def init_db():

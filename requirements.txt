@@ -7,4 +7,5 @@ google-auth
 PyJWT
 Werkzeug
 psycopg2-binary==2.9.9
-SQLAlchemy==2.0.27
+SQLAlchemy==2.0.23
+psycopg2==2.9.9
