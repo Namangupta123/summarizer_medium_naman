@@ -12,6 +12,8 @@ from google.auth.transport import requests
 import requests as http_requests 
 from werkzeug.serving import WSGIRequestHandler
 from langchain_openai import AzureChatOpenAI
+from sqlalchemy import create_engine, text
+from datetime import datetime
 load_dotenv()
 
 WSGIRequestHandler.protocol_version = "HTTP/1.1"
@@ -31,6 +33,32 @@ os.environ["LANGCHAIN_PROJECT"]=os.getenv("LANGSMITH_PROJECT")
 os.environ["OPENAI_API_VERSION"] = "2024-08-01-preview"
 os.environ["AZURE_OPENAI_ENDPOINT"] = os.getenv("OPENAI_ENDPOINT")
 os.environ["AZURE_OPENAI_API_KEY"] = os.getenv("OPENAI_API")
+
+# Database setup with Vercel Postgres
+POSTGRES_URL = os.getenv('POSTGRES_URL')
+if not POSTGRES_URL:
+    raise ValueError("POSTGRES_URL environment variable is not set")
+
+engine = create_engine(POSTGRES_URL, pool_pre_ping=True)
+
+# Create users table if it doesn't exist
+def init_db():
+    try:
+        with engine.connect() as conn:
+            conn.execute(text("""
+                CREATE TABLE IF NOT EXISTS users (
+                    email VARCHAR(255) PRIMARY KEY,
+                    summary_count INTEGER DEFAULT 0,
+                    last_reset TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+                )
+            """))
+            conn.commit()
+    except Exception as e:
+        print(f"Database initialization error: {str(e)}")
+        raise
+
+# Initialize database on startup
+init_db()
 
 template = """
 You are an expert summarization AI. Your role is to distill complex information into clear, concise summaries that capture the essence of the content.
@@ -66,6 +94,52 @@ prompt = ChatPromptTemplate.from_messages([
     ("human", template),
 ])
 
+def check_summary_limit(email):
+    try:
+        with engine.connect() as conn:
+            # Get user record or create if doesn't exist
+            result = conn.execute(
+                text("SELECT * FROM users WHERE email = :email"),
+                {"email": email}
+            ).fetchone()
+            
+            if not result:
+                conn.execute(
+                    text("INSERT INTO users (email, summary_count) VALUES (:email, 0)"),
+                    {"email": email}
+                )
+                conn.commit()
+                return True
+            
+            # Check if user has reached limit
+            if result.summary_count >= 5:
+                # Check if it's time to reset (e.g., after 24 hours)
+                last_reset = result.last_reset
+                if (datetime.now() - last_reset).days >= 1:
+                    conn.execute(
+                        text("UPDATE users SET summary_count = 0, last_reset = CURRENT_TIMESTAMP WHERE email = :email"),
+                        {"email": email}
+                    )
+                    conn.commit()
+                    return True
+                return False
+            
+            return True
+    except Exception as e:
+        print(f"Error checking summary limit: {str(e)}")
+        return False
+
+def increment_summary_count(email):
+    try:
+        with engine.connect() as conn:
+            conn.execute(
+                text("UPDATE users SET summary_count = summary_count + 1 WHERE email = :email"),
+                {"email": email}
+            )
+            conn.commit()
+    except Exception as e:
+        print(f"Error incrementing summary count: {str(e)}")
+
 def verify_google_token(token):
     try:
         response = http_requests.get(
@@ -92,7 +166,6 @@ def verify_token(f):
             return jsonify({'message': 'Token is missing'}), 401
         
         try:
-            print(json.dumps(token))
             token = token.split('Bearer ')[1]
             user_info = verify_google_token(token)
             if not user_info:
@@ -108,6 +181,22 @@ def verify_token(f):
 def home():
     return jsonify({"status": "alive", "message": "Medium Summarizer API is running"})
 
+@app.route('/user/summary-count', methods=['GET'])
+@verify_token
+def get_summary_count():
+    try:
+        email = request.user.get('email')
+        with engine.connect() as conn:
+            result = conn.execute(
+                text("SELECT summary_count FROM users WHERE email = :email"),
+                {"email": email}
+            ).fetchone()
+            count = result.summary_count if result else 0
+            return jsonify({"count": count, "limit": 5})
+    except Exception as e:
+        print(f"Error getting summary count: {str(e)}")
+        return jsonify({"error": "Failed to get summary count"}), 500
+
 @app.route('/summarize', methods=['POST', 'OPTIONS'])
 @verify_token
 def summarize():
@@ -115,6 +204,13 @@ def summarize():
         return '', 204
         
     try:
+        email = request.user.get('email')
+        if not check_summary_limit(email):
+            return jsonify({
+                "error": "Daily summary limit reached (5/5). Please try again tomorrow.",
+                "limit_reached": True
+            }), 429
+
         content = request.json['content']
         input_data = {
             "content": content
@@ -125,6 +221,10 @@ def summarize():
             | StrOutputParser()
         )
         summary = response.invoke(input_data)
+        
+        # Increment the summary count after successful generation
+        increment_summary_count(email)
+        
         return jsonify({"summary": summary})
     except Exception as e:
         return jsonify({"error": str(e)}), 500
