@@ -6,5 +6,5 @@ python-dotenv
 google-auth
 PyJWT
 Werkzeug
-psycopg2-binary
-SQLAlchemy
+psycopg2-binary==2.9.9
+SQLAlchemy==2.0.27
