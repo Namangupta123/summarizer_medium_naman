@@ -102,29 +102,31 @@ prompt = ChatPromptTemplate.from_messages([
 
 def verify_google_token(token):
     try:
-        # Try userinfo endpoint first
-        userinfo_response = http_requests.get(
-            'https://www.googleapis.com/oauth2/v2/userinfo',
-            headers={'Authorization': f'Bearer {token.token}'}
-        )
+        # First try with userinfo endpoint
+        userinfo_url = 'https://www.googleapis.com/oauth2/v2/userinfo'
+        headers = {'Authorization': f'Bearer {token}'}
         
-        if userinfo_response.status_code == 200:
-            return userinfo_response.json()
+        response = http_requests.get(userinfo_url, headers=headers)
         
-        # If userinfo fails, try tokeninfo endpoint
-        tokeninfo_response = http_requests.get(
-            f'https://oauth2.googleapis.com/tokeninfo?access_token={token.token}'
-        )
-        
-        if tokeninfo_response.status_code == 200:
-            token_info = tokeninfo_response.json()
-            if 'error' not in token_info:
-                return token_info
+        if response.ok:
+            user_info = response.json()
+            if 'email' in user_info:
+                return user_info
                 
+        # If userinfo fails, try token verification
+        token_url = f'https://oauth2.googleapis.com/tokeninfo?access_token={token}'
+        token_response = http_requests.get(token_url)
+        
+        if token_response.ok:
+            token_info = token_response.json()
+            if 'email' in token_info and 'error' not in token_info:
+                return token_info
+        
         return None
     except Exception as e:
         print(f"Token verification error: {str(e)}")
         return None
+
 
 def check_summary_limit(email):
     try:
@@ -187,15 +189,22 @@ def verify_token(f):
     def decorated(*args, **kwargs):
         auth_header = request.headers.get('Authorization')
         
-        if not auth_header or not auth_header.startswith('Bearer '):
-            return jsonify({'message': 'Missing or invalid Authorization header'}), 401
-        
-        token = auth_header.split('Bearer ')[1].strip()
+        if not auth_header:
+            return jsonify({'message': 'Authorization header is missing'}), 401
+            
+        parts = auth_header.split()
+        if len(parts) != 2 or parts[0].lower() != 'bearer':
+            return jsonify({'message': 'Invalid Authorization header format'}), 401
+            
+        token = parts[1]
         user_info = verify_google_token(token)
         
-        if not user_info or 'email' not in user_info:
+        if not user_info:
             return jsonify({'message': 'Invalid or expired token'}), 401
-        
+            
+        if 'email' not in user_info:
+            return jsonify({'message': 'Email not found in token'}), 401
+            
         request.user = user_info
         return f(*args, **kwargs)
     
