@@ -127,63 +127,6 @@ def verify_google_token(token):
         print(f"Token verification error: {str(e)}")
         return None
 
-
-def check_summary_limit(email):
-    try:
-        with engine.connect() as conn:
-            result = conn.execute(
-                text("SELECT * FROM users WHERE email = :email"),
-                {"email": email}
-            ).fetchone()
-            
-            if not result:
-                conn.execute(
-                    text("""
-                        INSERT INTO users (email, summary_count, last_reset) 
-                        VALUES (:email, 5, CURRENT_TIMESTAMP AT TIME ZONE 'Asia/Kolkata')
-                    """),
-                    {"email": email}
-                )
-                conn.commit()
-                return True
-            
-            last_reset = result.last_reset.astimezone(IST)
-            current_time = datetime.now(IST)
-            
-            if (current_time - last_reset) >= timedelta(days=1):
-                conn.execute(
-                    text("""
-                        UPDATE users 
-                        SET summary_count = 5, 
-                            last_reset = CURRENT_TIMESTAMP AT TIME ZONE 'Asia/Kolkata'
-                        WHERE email = :email
-                    """),
-                    {"email": email}
-                )
-                conn.commit()
-                return True
-            
-            return result.summary_count > 0
-            
-    except Exception as e:
-        print(f"Error checking summary limit: {str(e)}")
-        return False
-
-def decrement_summary_count(email):
-    try:
-        with engine.connect() as conn:
-            conn.execute(
-                text("""
-                    UPDATE users 
-                    SET summary_count = summary_count - 1 
-                    WHERE email = :email AND summary_count > 0
-                """),
-                {"email": email}
-            )
-            conn.commit()
-    except Exception as e:
-        print(f"Error decrementing summary count: {str(e)}")
-
 def verify_token(f):
     @wraps(f)
     def decorated(*args, **kwargs):
@@ -209,6 +152,62 @@ def verify_token(f):
         return f(*args, **kwargs)
     
     return decorated
+
+def check_summary_limit(email):
+    try:
+        with engine.connect() as conn:
+            result = conn.execute(
+                text("SELECT * FROM users WHERE email = :email"),
+                {"email": email}
+            ).fetchone()
+            
+            if not result:
+                conn.execute(
+                    text("""
+                        INSERT INTO users (email, summary_count, last_reset) 
+                        VALUES (:email, 5, CURRENT_TIMESTAMP AT TIME ZONE 'Asia/Kolkata')
+                    """),
+                    {"email": email}
+                )
+                conn.commit()
+                return True
+            
+            last_reset = result.last_reset.astimezone(IST)
+            current_time = datetime.now(IST)
+            
+            if current_time - last_reset >= timedelta(days=1):
+                conn.execute(
+                    text("""
+                        UPDATE users 
+                        SET summary_count = 5, 
+                            last_reset = CURRENT_TIMESTAMP AT TIME ZONE 'Asia/Kolkata'
+                        WHERE email = :email
+                    """),
+                    {"email": email}
+                )
+                conn.commit()
+                return True
+            
+            return result.summary_count > 0
+            
+    except Exception as e:
+        print(f"Error checking summary limit: {str(e)}")
+        return False
+
+def increment_summary_count(email):
+    try:
+        with engine.connect() as conn:
+            conn.execute(
+                text("""
+                    UPDATE users 
+                    SET summary_count = summary_count - 1 
+                    WHERE email = :email
+                """),
+                {"email": email}
+            )
+            conn.commit()
+    except Exception as e:
+        print(f"Error incrementing summary count: {str(e)}")
 
 @app.route('/')
 def home():
@@ -238,7 +237,7 @@ def get_summary_count():
             ).fetchone()
             
             if not result:
-                return jsonify({"count": 5, "limit": 5, "remaining": 5})
+                return jsonify({"count": 0, "limit": 5, "remaining": 5})
             
             current_count = result.current_count
             
@@ -246,7 +245,7 @@ def get_summary_count():
             last_reset_ist = result.last_reset.astimezone(IST)
             
             return jsonify({
-                "count": current_count,
+                "count": 5 - current_count,
                 "limit": 5,
                 "remaining": current_count,
                 "last_reset": last_reset_ist.isoformat()
@@ -266,7 +265,7 @@ def summarize():
         email = request.user.get('email')
         if not check_summary_limit(email):
             return jsonify({
-                "error": "Daily summary limit reached (5/5). Please try again tomorrow.",
+                "error": "Daily summary limit reached (0/5). Please try again tomorrow.",
                 "limit_reached": True
             }), 429
 
@@ -282,7 +281,7 @@ def summarize():
         )
         summary = response.invoke(input_data)
         
-        decrement_summary_count(email)
+        increment_summary_count(email)
         
         return jsonify({"summary": summary})
     except Exception as e:
