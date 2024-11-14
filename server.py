@@ -14,6 +14,8 @@ from werkzeug.serving import WSGIRequestHandler
 from langchain_openai import AzureChatOpenAI
 from sqlalchemy import create_engine, text
 from datetime import datetime, timedelta
+import pytz
+
 load_dotenv()
 
 WSGIRequestHandler.protocol_version = "HTTP/1.1"
@@ -23,6 +25,9 @@ CORS(app,
      allow_headers=["Content-Type", "Authorization"],
      methods=["GET", "POST", "OPTIONS"],
      max_age=3600)
+
+# Configure timezone
+IST = pytz.timezone('Asia/Kolkata')
 
 openai_endpoint = os.getenv("OPENAI_ENDPOINT")
 openai_api = os.getenv("OPENAI_API")
@@ -49,7 +54,7 @@ def init_db():
                 CREATE TABLE IF NOT EXISTS users (
                     email VARCHAR(255) PRIMARY KEY,
                     summary_count INTEGER DEFAULT 0,
-                    last_reset TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+                    last_reset TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
                 )
             """))
             conn.commit()
@@ -133,22 +138,22 @@ def check_summary_limit(email):
                 conn.execute(
                     text("""
                         INSERT INTO users (email, summary_count, last_reset) 
-                        VALUES (:email, 0, CURRENT_TIMESTAMP)
+                        VALUES (:email, 0, CURRENT_TIMESTAMP AT TIME ZONE 'Asia/Kolkata')
                     """),
                     {"email": email}
                 )
                 conn.commit()
                 return True
             
-            last_reset = result.last_reset
-            current_time = datetime.now()
+            last_reset = result.last_reset.astimezone(IST)
+            current_time = datetime.now(IST)
             
             if current_time - last_reset >= timedelta(days=1):
                 conn.execute(
                     text("""
                         UPDATE users 
                         SET summary_count = 0, 
-                            last_reset = CURRENT_TIMESTAMP 
+                            last_reset = CURRENT_TIMESTAMP AT TIME ZONE 'Asia/Kolkata'
                         WHERE email = :email
                     """),
                     {"email": email}
@@ -213,7 +218,7 @@ def get_summary_count():
                 text("""
                     SELECT summary_count, last_reset,
                     CASE 
-                        WHEN (CURRENT_TIMESTAMP - last_reset) >= INTERVAL '1 day'
+                        WHEN (CURRENT_TIMESTAMP AT TIME ZONE 'Asia/Kolkata' - last_reset) >= INTERVAL '1 day'
                         THEN 0
                         ELSE summary_count
                     END as current_count
@@ -229,11 +234,14 @@ def get_summary_count():
             current_count = result.current_count
             remaining = 5 - current_count
             
+            # Convert last_reset to IST before sending
+            last_reset_ist = result.last_reset.astimezone(IST)
+            
             return jsonify({
                 "count": current_count,
                 "limit": 5,
                 "remaining": remaining,
-                "last_reset": result.last_reset.isoformat()
+                "last_reset": last_reset_ist.isoformat()
             })
             
     except Exception as e:
