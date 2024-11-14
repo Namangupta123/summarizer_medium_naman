@@ -53,7 +53,7 @@ def init_db():
             conn.execute(text("""
                 CREATE TABLE IF NOT EXISTS users (
                     email VARCHAR(255) PRIMARY KEY,
-                    summary_count INTEGER DEFAULT 0,
+                    summary_count INTEGER DEFAULT 5,
                     last_reset TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
                 )
             """))
@@ -138,7 +138,7 @@ def check_summary_limit(email):
                 conn.execute(
                     text("""
                         INSERT INTO users (email, summary_count, last_reset) 
-                        VALUES (:email, 0, CURRENT_TIMESTAMP AT TIME ZONE 'Asia/Kolkata')
+                        VALUES (:email, 5, CURRENT_TIMESTAMP AT TIME ZONE 'Asia/Kolkata')
                     """),
                     {"email": email}
                 )
@@ -148,11 +148,11 @@ def check_summary_limit(email):
             last_reset = result.last_reset.astimezone(IST)
             current_time = datetime.now(IST)
             
-            if current_time - last_reset >= timedelta(days=1):
+            if (current_time - last_reset) >= timedelta(days=1):
                 conn.execute(
                     text("""
                         UPDATE users 
-                        SET summary_count = 0, 
+                        SET summary_count = 5, 
                             last_reset = CURRENT_TIMESTAMP AT TIME ZONE 'Asia/Kolkata'
                         WHERE email = :email
                     """),
@@ -161,26 +161,26 @@ def check_summary_limit(email):
                 conn.commit()
                 return True
             
-            return result.summary_count < 5
+            return result.summary_count > 0
             
     except Exception as e:
         print(f"Error checking summary limit: {str(e)}")
         return False
 
-def increment_summary_count(email):
+def decrement_summary_count(email):
     try:
         with engine.connect() as conn:
             conn.execute(
                 text("""
                     UPDATE users 
-                    SET summary_count = summary_count + 1 
-                    WHERE email = :email
+                    SET summary_count = summary_count - 1 
+                    WHERE email = :email AND summary_count > 0
                 """),
                 {"email": email}
             )
             conn.commit()
     except Exception as e:
-        print(f"Error incrementing summary count: {str(e)}")
+        print(f"Error decrementing summary count: {str(e)}")
 
 def verify_token(f):
     @wraps(f)
@@ -219,7 +219,7 @@ def get_summary_count():
                     SELECT summary_count, last_reset,
                     CASE 
                         WHEN (CURRENT_TIMESTAMP AT TIME ZONE 'Asia/Kolkata' - last_reset) >= INTERVAL '1 day'
-                        THEN 0
+                        THEN 5
                         ELSE summary_count
                     END as current_count
                     FROM users 
@@ -229,10 +229,9 @@ def get_summary_count():
             ).fetchone()
             
             if not result:
-                return jsonify({"count": 0, "limit": 5, "remaining": 5})
+                return jsonify({"count": 5, "limit": 5, "remaining": 5})
             
             current_count = result.current_count
-            remaining = 5 - current_count
             
             # Convert last_reset to IST before sending
             last_reset_ist = result.last_reset.astimezone(IST)
@@ -240,7 +239,7 @@ def get_summary_count():
             return jsonify({
                 "count": current_count,
                 "limit": 5,
-                "remaining": remaining,
+                "remaining": current_count,
                 "last_reset": last_reset_ist.isoformat()
             })
             
@@ -274,7 +273,7 @@ def summarize():
         )
         summary = response.invoke(input_data)
         
-        increment_summary_count(email)
+        decrement_summary_count(email)
         
         return jsonify({"summary": summary})
     except Exception as e:
