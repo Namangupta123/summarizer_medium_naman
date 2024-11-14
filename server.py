@@ -22,7 +22,7 @@ WSGIRequestHandler.protocol_version = "HTTP/1.1"
 app = Flask(__name__)
 CORS(app, 
      resources={r"/*": {"origins": "*"}},
-     allow_headers=["Content-Type", "Authorization"],
+     allow_headers=["Content-Type", "Authorization", "Accept"],
      methods=["GET", "POST", "OPTIONS"],
      max_age=3600)
 
@@ -102,25 +102,25 @@ prompt = ChatPromptTemplate.from_messages([
 
 def verify_google_token(token):
     try:
-        # First try using tokeninfo endpoint
-        response = http_requests.get(
-            f'https://oauth2.googleapis.com/tokeninfo?access_token={token}'
+        # Try userinfo endpoint first
+        userinfo_response = http_requests.get(
+            'https://www.googleapis.com/oauth2/v2/userinfo',
+            headers={'Authorization': f'Bearer {token.token}'}
         )
         
-        if response.status_code == 200:
-            token_info = response.json()
+        if userinfo_response.status_code == 200:
+            return userinfo_response.json()
+        
+        # If userinfo fails, try tokeninfo endpoint
+        tokeninfo_response = http_requests.get(
+            f'https://oauth2.googleapis.com/tokeninfo?access_token={token.token}'
+        )
+        
+        if tokeninfo_response.status_code == 200:
+            token_info = tokeninfo_response.json()
             if 'error' not in token_info:
                 return token_info
-        
-        # If tokeninfo fails, try with userinfo endpoint
-        user_info_response = http_requests.get(
-            'https://www.googleapis.com/oauth2/v2/userinfo',
-            headers={'Authorization': f'Bearer {token}'}
-        )
-        
-        if user_info_response.status_code == 200:
-            return user_info_response.json()
-            
+                
         return None
     except Exception as e:
         print(f"Token verification error: {str(e)}")
@@ -188,9 +188,9 @@ def verify_token(f):
         auth_header = request.headers.get('Authorization')
         
         if not auth_header or not auth_header.startswith('Bearer '):
-            return jsonify({'message': 'Invalid authorization header'}), 401
+            return jsonify({'message': 'Missing or invalid Authorization header'}), 401
         
-        token = auth_header.split('Bearer ')[1]
+        token = auth_header.split('Bearer ')[1].strip()
         user_info = verify_google_token(token)
         
         if not user_info or 'email' not in user_info:
@@ -262,10 +262,11 @@ def summarize():
                 "limit_reached": True
             }), 429
 
-        content = request.json['content']
-        input_data = {
-            "content": content
-        }
+        content = request.json.get('content')
+        if not content:
+            return jsonify({"error": "No content provided"}), 400
+
+        input_data = {"content": content}
         response = (
             prompt
             | llm.bind(stop=["\nsummarization"])
