@@ -15,6 +15,8 @@ from langchain_openai import AzureChatOpenAI
 from sqlalchemy import create_engine, text
 from datetime import datetime, timedelta
 import pytz
+from sendgrid import SendGridAPIClient
+from sendgrid.helpers.mail import Mail
 
 load_dotenv()
 
@@ -28,6 +30,10 @@ CORS(app,
 
 # Configure timezone
 IST = pytz.timezone('Asia/Kolkata')
+
+# SendGrid configuration
+SENDGRID_API_KEY = os.getenv('SEND_GRID_AP')
+FROM_EMAIL = os.getenv('FROM_EMAIL')
 
 openai_endpoint = os.getenv("OPENAI_ENDPOINT")
 openai_api = os.getenv("OPENAI_API")
@@ -54,7 +60,8 @@ def init_db():
                 CREATE TABLE IF NOT EXISTS users (
                     email VARCHAR(255) PRIMARY KEY,
                     summary_count INTEGER DEFAULT 5,
-                    last_reset TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
+                    last_reset TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
+                    welcome_email_sent BOOLEAN DEFAULT FALSE
                 )
             """))
             conn.commit()
@@ -64,6 +71,35 @@ def init_db():
 
 # Initialize database on startup
 init_db()
+
+def send_welcome_email(email):
+    try:
+        message = Mail(
+            from_email=FROM_EMAIL,
+            to_emails=email,
+            subject='Welcome to Medium Blog Summarizer!',
+            html_content=f'''
+                <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
+                    <h2>Welcome to Medium Blog Summarizer! 🎉</h2>
+                    <p>Dear User,</p>
+                    <p>Thank you for choosing Medium Blog Summarizer! We're excited to have you on board.</p>
+                    <p>With our tool, you can:</p>
+                    <ul>
+                        <li>Get AI-powered summaries of Medium articles</li>
+                        <li>Save time while staying informed</li>
+                        <li>Access 5 free summaries daily</li>
+                    </ul>
+                    <p>Start summarizing your first article today!</p>
+                    <p>Best regards,<br>The Medium Blog Summarizer Team</p>
+                </div>
+            '''
+        )
+        sg = SendGridAPIClient(SENDGRID_API_KEY)
+        sg.send(message)
+        return True
+    except Exception as e:
+        print(f"Error sending welcome email: {str(e)}")
+        return False
 
 template = """
 You are an expert summarization AI. Your role is to create well-structured HTML summaries that are clean and semantic. 
@@ -196,14 +232,24 @@ def check_summary_limit(email):
             ).fetchone()
             
             if not result:
+                # New user registration
                 conn.execute(
                     text("""
-                        INSERT INTO users (email, summary_count, last_reset) 
-                        VALUES (:email, 5, CURRENT_TIMESTAMP AT TIME ZONE 'Asia/Kolkata')
+                        INSERT INTO users (email, summary_count, last_reset, welcome_email_sent) 
+                        VALUES (:email, 5, CURRENT_TIMESTAMP AT TIME ZONE 'Asia/Kolkata', FALSE)
                     """),
                     {"email": email}
                 )
                 conn.commit()
+                
+                # Send welcome email
+                if send_welcome_email(email):
+                    conn.execute(
+                        text("UPDATE users SET welcome_email_sent = TRUE WHERE email = :email"),
+                        {"email": email}
+                    )
+                    conn.commit()
+                
                 return True
             
             last_reset = result.last_reset.astimezone(IST)
