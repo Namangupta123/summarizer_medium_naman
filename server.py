@@ -22,12 +22,30 @@ load_dotenv()
 
 WSGIRequestHandler.protocol_version = "HTTP/1.1"
 app = Flask(__name__)
+
+# Updated CORS configuration with both Medium domains
 CORS(app, 
-     resources={r"/*": {"origins": ["*", "https://medium.com/*", "https://medium.com"]}},
-     allow_headers=["Content-Type", "Authorization", "Accept"],
-     methods=["GET", "POST", "OPTIONS"],
-     max_age=3600,
-     supports_credentials=True)
+     resources={
+         r"/*": {
+             "origins": ["https://medium.com", "https://medium.com/*", "chrome-extension://*"],
+             "methods": ["GET", "POST", "OPTIONS"],
+             "allow_headers": ["Content-Type", "Authorization", "Accept"],
+             "supports_credentials": True,
+             "expose_headers": ["Content-Type", "Authorization"],
+             "max_age": 3600
+         }
+     })
+
+@app.after_request
+def after_request(response):
+    origin = request.headers.get('Origin', '')
+    if origin.startswith('https://medium.com'):
+        response.headers.add('Access-Control-Allow-Origin', origin)
+    response.headers.add('Access-Control-Allow-Headers', 'Content-Type,Authorization')
+    response.headers.add('Access-Control-Allow-Methods', 'GET,POST,OPTIONS')
+    response.headers.add('Access-Control-Allow-Credentials', 'true')
+    response.headers.add('Access-Control-Max-Age', '3600')
+    return response
 
 # Configure timezone
 IST = pytz.timezone('Asia/Kolkata')
@@ -201,6 +219,9 @@ def verify_google_token(token):
 def verify_token(f):
     @wraps(f)
     def decorated(*args, **kwargs):
+        if request.method == 'OPTIONS':
+            return '', 204
+            
         auth_header = request.headers.get('Authorization')
         
         if not auth_header:
@@ -294,7 +315,7 @@ def increment_summary_count(email):
 def home():
     return jsonify({"status": "alive", "message": "Medium Summarizer API is running"})
 
-@app.route('/user/summary-count', methods=['GET'])
+@app.route('/user/summary-count', methods=['GET', 'OPTIONS'])
 @verify_token
 def get_summary_count():
     try:
