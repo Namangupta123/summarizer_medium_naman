@@ -37,7 +37,6 @@ FROM_EMAIL = os.getenv('FROM_EMAIL')
 
 openai_endpoint = os.getenv("OPENAI_ENDPOINT")
 openai_api = os.getenv("OPENAI_API")
-os.environ["SENDGRID_API_KEY"]=os.getenv('SEND_GRID_API')
 os.environ["LANGCHAIN_TRACING_V2"] = "true"
 os.environ["LANGCHAIN_ENDPOINT"] = os.getenv("LANGSMITH_ENDPOINT")
 os.environ["LANGCHAIN_API_KEY"] = os.getenv("LANGSMITH_API")
@@ -95,7 +94,7 @@ def send_welcome_email(email):
                 </div>
             '''
         )
-        sg = SendGridAPIClient(SENDGRID_API_KEY)
+        sg = SendGridAPIClient(os.environ.get("SEND_GRID_API"))
         sg.send(message)
         return True
     except Exception as e:
