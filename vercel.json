@@ -22,7 +22,7 @@
             "headers": [
                 {
                     "key": "Access-Control-Allow-Origin",
-                    "value": "https://medium.com"
+                    "value": "https://medium.com/*"
                 },
                 {
                     "key": "Access-Control-Allow-Origin",
