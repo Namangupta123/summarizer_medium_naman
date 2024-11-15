@@ -265,7 +265,7 @@ def summarize():
         email = request.user.get('email')
         if not check_summary_limit(email):
             return jsonify({
-                "error": "Daily summary limit reached (0/5). Please try again tomorrow.",
+                "error": "Daily summary limit reached (5/5). Please try again tomorrow.",
                 "limit_reached": True
             }), 429
 
