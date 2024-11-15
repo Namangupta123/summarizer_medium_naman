@@ -66,110 +66,58 @@ def init_db():
 init_db()
 
 template = """
-You are an expert summarization AI. Your role is to create beautifully formatted, HTML summaries with clean CSS styling.
+You are an expert summarization AI. Your role is to create well-structured HTML summaries that are clean and semantic. 
 
-### System Prompt
-You are a summarization AI specialized in generating HTML content with embedded CSS. Your task is to transform input text into a structured summary with specific sections, ensuring a consistent and visually appealing format.
-
-### Instructions
+## Instructions
 1. Create a summary with the following sections:
    - Main Summary (brief overview)
    - Key Points
    - Important Details
    - Takeaways
 
-2. Use HTML with embedded CSS styling. The response should start with:
-```html
-<style>
-.summary-container {
-    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
-    line-height: 1.6;
-    color: #2c3e50;
-    max-width: 800px;
-    margin: 0 auto;
-    padding: 20px;
-}
-.summary-section {
-    margin-bottom: 24px;
-}
-h2 {
-    color: #1a365d;
-    border-bottom: 2px solid #e2e8f0;
-    padding-bottom: 8px;
-    margin-top: 24px;
-}
-h3 {
-    color: #2d3748;
-    margin-top: 16px;
-}
-p {
-    margin: 16px 0;
-}
-ul {
-    padding-left: 24px;
-    margin: 16px 0;
-}
-li {
-    margin: 8px 0;
-    line-height: 1.5;
-}
-.highlight {
-    background-color: #faf5ff;
-    padding: 16px;
-    border-radius: 8px;
-    border-left: 4px solid #805ad5;
-}
-.key-point {
-    font-weight: 500;
-    color: #2c5282;
-}
-</style>
-```
+2. Use semantic HTML elements for structure. The response should follow this format:
 
-### Input
-```markdown
-{content}
-```
-
-### Response Format Example
 ```html
-<div class="summary-container">
-    <div class="summary-section">
+<article>
+    <section>
         <h2>Main Summary</h2>
-        <div class="highlight">
-            <p>[Concise overview here]</p>
-        </div>
-    </div>
+        <p>[Concise overview here]</p>
+    </section>
 
-    <div class="summary-section">
+    <section>
         <h2>Key Points</h2>
         <ul>
-            <li class="key-point">[Key point 1]</li>
-            <li class="key-point">[Key point 2]</li>
+            <li>[Key point 1]</li>
+            <li>[Key point 2]</li>
         </ul>
-    </div>
+    </section>
 
-    <div class="summary-section">
+    <section>
         <h2>Important Details</h2>
-        <div>
-            <h3>Context</h3>
-            <ul>
-                <li>[Detail 1]</li>
-            </ul>
-        </div>
-    </div>
+        <h3>Context</h3>
+        <ul>
+            <li>[Detail 1]</li>
+        </ul>
+    </section>
 
-    <div class="summary-section">
+    <section>
         <h2>Key Takeaways</h2>
         <ul>
             <li>[Takeaway 1]</li>
         </ul>
-    </div>
-</div>
+    </section>
+</article>
 ```
 
-### Input Variables
-- {content}: The text content that needs to be summarized.
+## Input Content to Summarize:
+{content}
+
+Ensure the summary is comprehensive yet concise, with proper semantic HTML structure throughout. 
+
+## Examples
+- **Example 1**: If summarizing a news article, the Main Summary should provide a brief overview of the event, Key Points should list the main facts, Important Details should provide context such as background information, and Key Takeaways should highlight the implications or future outlook.
+
+- **Example 2**: For a research paper, the Main Summary should encapsulate the research question and findings, Key Points should outline the methodology and results, Important Details should delve into the data analysis, and Key Takeaways should discuss the significance of the findings.
 """
 
 llm = AzureChatOpenAI(
@@ -184,7 +132,7 @@ llm = AzureChatOpenAI(
 )
 
 prompt = ChatPromptTemplate.from_messages([
-    ("system", "You are an AI summarization expert. Your primary function is to distill complex information into clear, concise summaries while maintaining the original intent and key details. Use a neutral and informative tone."),
+    ("system", "You are an AI specialized in creating structured HTML summaries. Your task is to transform complex information into clear, concise, and well-organized summaries using semantic HTML. Maintain a neutral and informative tone, ensuring that each section is distinct and logically ordered. Prioritize clarity and coherence in your summaries."),
     ("human", template),
 ])
 
