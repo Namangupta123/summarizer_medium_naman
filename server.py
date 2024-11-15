@@ -23,7 +23,7 @@ load_dotenv()
 WSGIRequestHandler.protocol_version = "HTTP/1.1"
 app = Flask(__name__)
 CORS(app, 
-     resources={r"/*": {"origins": ["*", "https://medium.com/*"]}},
+     resources={r"/*": {"origins": ["*", "https://medium.com/*", "https://medium.com"]}},
      allow_headers=["Content-Type", "Authorization", "Accept"],
      methods=["GET", "POST", "OPTIONS"],
      max_age=3600,
