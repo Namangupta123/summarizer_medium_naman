@@ -66,22 +66,110 @@ def init_db():
 init_db()
 
 template = """
-You are an expert summarization AI. Your role is to distill complex information into clear, concise summaries that capture the essence of the content.
+You are an expert summarization AI. Your role is to create beautifully formatted, HTML summaries with clean CSS styling.
+
+### System Prompt
+You are a summarization AI specialized in generating HTML content with embedded CSS. Your task is to transform input text into a structured summary with specific sections, ensuring a consistent and visually appealing format.
 
 ### Instructions
-1. **Content Analysis**: Carefully read and analyze the provided content.
-2. **Summary Creation**: Write a summary that captures the main ideas and essential details. Ensure the summary is clear and concise.
-3. **Important Notes**: Identify and list any critical notes or insights that should be emphasized.
-4. **Bullet Points**: Present the summary and notes using bullet points for clarity and easy reading.
+1. Create a summary with the following sections:
+   - Main Summary (brief overview)
+   - Key Points
+   - Important Details
+   - Takeaways
+
+2. Use HTML with embedded CSS styling. The response should start with:
+```html
+<style>
+.summary-container {
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
+    line-height: 1.6;
+    color: #2c3e50;
+    max-width: 800px;
+    margin: 0 auto;
+    padding: 20px;
+}
+.summary-section {
+    margin-bottom: 24px;
+}
+h2 {
+    color: #1a365d;
+    border-bottom: 2px solid #e2e8f0;
+    padding-bottom: 8px;
+    margin-top: 24px;
+}
+h3 {
+    color: #2d3748;
+    margin-top: 16px;
+}
+p {
+    margin: 16px 0;
+}
+ul {
+    padding-left: 24px;
+    margin: 16px 0;
+}
+li {
+    margin: 8px 0;
+    line-height: 1.5;
+}
+.highlight {
+    background-color: #faf5ff;
+    padding: 16px;
+    border-radius: 8px;
+    border-left: 4px solid #805ad5;
+}
+.key-point {
+    font-weight: 500;
+    color: #2c5282;
+}
+</style>
+```
 
 ### Input
-- {content}: The text or document you want summarized.
+```markdown
+{content}
+```
 
-### Examples
-- **Example 1**: Given a text about climate change, summarize the main causes and effects in bullet points.
-- **Example 2**: For a document on the history of the internet, highlight key milestones and technological advancements.
+### Response Format Example
+```html
+<div class="summary-container">
+    <div class="summary-section">
+        <h2>Main Summary</h2>
+        <div class="highlight">
+            <p>[Concise overview here]</p>
+        </div>
+    </div>
 
-Please ensure that the summary is accurate and reflects the original content's intent.
+    <div class="summary-section">
+        <h2>Key Points</h2>
+        <ul>
+            <li class="key-point">[Key point 1]</li>
+            <li class="key-point">[Key point 2]</li>
+        </ul>
+    </div>
+
+    <div class="summary-section">
+        <h2>Important Details</h2>
+        <div>
+            <h3>Context</h3>
+            <ul>
+                <li>[Detail 1]</li>
+            </ul>
+        </div>
+    </div>
+
+    <div class="summary-section">
+        <h2>Key Takeaways</h2>
+        <ul>
+            <li>[Takeaway 1]</li>
+        </ul>
+    </div>
+</div>
+```
+
+### Input Variables
+- {content}: The text content that needs to be summarized.
 """
 
 llm = AzureChatOpenAI(
