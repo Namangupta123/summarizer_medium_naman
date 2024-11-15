@@ -77,7 +77,6 @@ You are an expert summarization AI. Your role is to create well-structured HTML 
 
 2. Use semantic HTML elements for structure. The response should follow this format:
 
-```html
 <article>
     <section>
         <h2>Main Summary</h2>
@@ -107,7 +106,6 @@ You are an expert summarization AI. Your role is to create well-structured HTML 
         </ul>
     </section>
 </article>
-```
 
 ## Input Content to Summarize:
 {content}
