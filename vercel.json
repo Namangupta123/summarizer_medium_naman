@@ -26,11 +26,7 @@
                 },
                 {
                     "key": "Access-Control-Allow-Origin",
-                    "value": "https://medium.com"
-                },
-                {
-                    "key": "Access-Control-Allow-Origin",
-                    "value": "https://*.medium.com/*"
+                    "value": "*"
                 },
                 {
                     "key": "Access-Control-Allow-Methods",
@@ -43,6 +39,10 @@
                 {
                     "key": "Access-Control-Max-Age",
                     "value": "3600"
+                },
+                {
+                    "key": "Access-Control-Expose-Headers",
+                    "value": "Content-Type, Authorization"
                 }
             ]
         }

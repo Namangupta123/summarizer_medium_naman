@@ -29,19 +29,29 @@ CORS(app,
          r"/*": {
              "origins": ["https://medium.com", "https://*.medium.com", "chrome-extension://*"],
              "methods": ["GET", "POST", "OPTIONS"],
-             "allow_headers": ["Content-Type", "Authorization", "Accept"],
-             "max_age": 3600
+             "allow_headers": ["Content-Type", "Authorization", "Accept", "X-Requested-With"],
+             "supports_credentials": True,
+             "max_age": 3600,
+             "expose_headers": ["Content-Type", "Authorization"]
          }
      })
 
+# Updated CORS headers handling
 @app.after_request
 def after_request(response):
     origin = request.headers.get('Origin')
     if origin:
         response.headers['Access-Control-Allow-Origin'] = origin
-    response.headers['Access-Control-Allow-Headers'] = 'Content-Type, Authorization, Accept'
+    response.headers['Access-Control-Allow-Credentials'] = 'true'
+    response.headers['Access-Control-Allow-Headers'] = 'Content-Type, Authorization, Accept, X-Requested-With'
     response.headers['Access-Control-Allow-Methods'] = 'GET, POST, OPTIONS'
     response.headers['Access-Control-Max-Age'] = '3600'
+    response.headers['Access-Control-Expose-Headers'] = 'Content-Type, Authorization'
+    
+    # Ensure OPTIONS requests return 200
+    if request.method == 'OPTIONS':
+        response.status_code = 200
+        
     return response
 
 
