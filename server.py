@@ -22,37 +22,11 @@ load_dotenv()
 
 WSGIRequestHandler.protocol_version = "HTTP/1.1"
 app = Flask(__name__)
-
-# Updated CORS configuration with both Medium domains
 CORS(app, 
-     resources={
-         r"/*": {
-             "origins": ["https://medium.com", "https://*.medium.com", "chrome-extension://*"],
-             "methods": ["GET", "POST", "OPTIONS"],
-             "allow_headers": ["Content-Type", "Authorization", "Accept", "X-Requested-With"],
-             "supports_credentials": True,
-             "max_age": 3600,
-             "expose_headers": ["Content-Type", "Authorization"]
-         }
-     })
-
-# Updated CORS headers handling
-@app.after_request
-def after_request(response):
-    origin = request.headers.get('Origin')
-    if origin and origin in ["https://medium.com", "https://medium.com/","https://*.medium.com"]:
-        response.headers['Access-Control-Allow-Origin'] = origin
-    response.headers['Access-Control-Allow-Credentials'] = 'true'
-    response.headers['Access-Control-Allow-Headers'] = 'Content-Type, Authorization, Accept, X-Requested-With'
-    response.headers['Access-Control-Allow-Methods'] = 'GET, POST, OPTIONS'
-    response.headers['Access-Control-Max-Age'] = '3600'
-    response.headers['Access-Control-Expose-Headers'] = 'Content-Type, Authorization'
-    
-    if request.method == 'OPTIONS':
-        response.status_code = 200
-        
-    return response
-
+     resources={r"/*": {"origins": "*"}},
+     allow_headers=["Content-Type", "Authorization", "Accept"],
+     methods=["GET", "POST", "OPTIONS"],
+     max_age=3600)
 
 # Configure timezone
 IST = pytz.timezone('Asia/Kolkata')
@@ -226,9 +200,6 @@ def verify_google_token(token):
 def verify_token(f):
     @wraps(f)
     def decorated(*args, **kwargs):
-        if request.method == 'OPTIONS':
-            return '', 204
-            
         auth_header = request.headers.get('Authorization')
         
         if not auth_header:
@@ -322,7 +293,7 @@ def increment_summary_count(email):
 def home():
     return jsonify({"status": "alive", "message": "Medium Summarizer API is running"})
 
-@app.route('/user/summary-count', methods=['GET', 'OPTIONS'])
+@app.route('/user/summary-count', methods=['GET'])
 @verify_token
 def get_summary_count():
     try:
@@ -365,7 +336,7 @@ def get_summary_count():
         return jsonify({"error": "Failed to get summary count"}), 500
 
 @app.route('/summarize', methods=['POST', 'OPTIONS'])
-# @verify_token
+@verify_token
 def summarize():
     if request.method == 'OPTIONS':
         return '', 204
