@@ -12,7 +12,7 @@ from google.auth.transport import requests
 import requests as http_requests 
 from werkzeug.serving import WSGIRequestHandler
 from langchain_openai import AzureChatOpenAI
-from sqlalchemy import create_engine, text
+from sqlalchemy import create_engine, text, exc
 from datetime import datetime, timedelta, date
 import pytz
 from sendgrid import SendGridAPIClient
@@ -56,8 +56,13 @@ engine = create_engine(POSTGRES_URL)
 def init_db():
     try:
         with engine.connect() as conn:
+            # Drop the existing table if it exists
+            conn.execute(text("DROP TABLE IF EXISTS users"))
+            conn.commit()
+            
+            # Create the table with the new schema
             conn.execute(text("""
-                CREATE TABLE IF NOT EXISTS users (
+                CREATE TABLE users (
                     email VARCHAR(255) PRIMARY KEY,
                     summary_count INTEGER DEFAULT 5,
                     last_reset DATE DEFAULT CURRENT_DATE,
@@ -225,26 +230,31 @@ def verify_token(f):
 
 def get_remaining_summaries(email, conn):
     """Calculate remaining summaries for a user"""
-    result = conn.execute(
-        text("SELECT * FROM users WHERE email = :email"),
-        {"email": email}
-    ).fetchone()
-    
-    if not result:
-        return None
+    try:
+        result = conn.execute(
+            text("SELECT * FROM users WHERE email = :email"),
+            {"email": email}
+        ).fetchone()
         
-    current_date = datetime.now(IST).date()
-    last_reset_date = result.last_reset
-    
-    # Check if reset is needed (different date)
-    needs_reset = current_date > last_reset_date
-    remaining = result.summary_count if not needs_reset else 5
-    
-    return {
-        'remaining': remaining,
-        'needs_reset': needs_reset,
-        'is_new_user': False
-    }
+        if not result:
+            return None
+            
+        current_date = datetime.now(IST).date()
+        last_reset_date = result.last_reset
+        
+        # Check if reset is needed (different date)
+        needs_reset = current_date > last_reset_date
+        remaining = result.summary_count if not needs_reset else 5
+        
+        return {
+            'remaining': remaining,
+            'needs_reset': needs_reset,
+            'is_new_user': False,
+            'last_reset': last_reset_date
+        }
+    except Exception as e:
+        print(f"Error in get_remaining_summaries: {str(e)}")
+        return None
 
 def check_summary_limit(email):
     try:
@@ -322,14 +332,39 @@ def get_summary_count():
             return jsonify({"error": "Email not found in token"}), 400
             
         with engine.connect() as conn:
+            # First, check if user exists
+            user = conn.execute(
+                text("SELECT * FROM users WHERE email = :email"),
+                {"email": email}
+            ).fetchone()
+            
+            if not user:
+                # Create new user with default values
+                conn.execute(
+                    text("""
+                        INSERT INTO users (email, summary_count, last_reset, welcome_email_sent)
+                        VALUES (:email, 5, CURRENT_DATE, FALSE)
+                    """),
+                    {"email": email}
+                )
+                conn.commit()
+                return jsonify({
+                    "count": 0,
+                    "limit": 5,
+                    "remaining": 5,
+                    "last_reset": datetime.now(IST).date().strftime('%Y-%m-%d')
+                })
+            
+            # Get current summary count with date check
             result = conn.execute(
                 text("""
-                    SELECT summary_count, last_reset,
-                    CASE 
-                        WHEN CURRENT_DATE > last_reset
-                        THEN 5
-                        ELSE summary_count
-                    END as current_count
+                    SELECT 
+                        CASE 
+                            WHEN CURRENT_DATE > last_reset
+                            THEN 5
+                            ELSE summary_count
+                        END as current_count,
+                        last_reset
                     FROM users 
                     WHERE email = :email
                 """),
@@ -337,12 +372,25 @@ def get_summary_count():
             ).fetchone()
             
             if not result:
-                return jsonify({"count": 0, "limit": 5, "remaining": 5})
+                return jsonify({"error": "Failed to retrieve user data"}), 500
             
             current_count = result.current_count
-            
-            # Format last_reset as date string
             last_reset_date = result.last_reset.strftime('%Y-%m-%d')
+            
+            # If it's a new day, update the last_reset and reset count
+            if datetime.now(IST).date() > result.last_reset:
+                conn.execute(
+                    text("""
+                        UPDATE users 
+                        SET summary_count = 5,
+                            last_reset = CURRENT_DATE
+                        WHERE email = :email
+                    """),
+                    {"email": email}
+                )
+                conn.commit()
+                current_count = 5
+                last_reset_date = datetime.now(IST).date().strftime('%Y-%m-%d')
             
             return jsonify({
                 "count": 5 - current_count,
@@ -351,8 +399,11 @@ def get_summary_count():
                 "last_reset": last_reset_date
             })
             
+    except exc.SQLAlchemyError as e:
+        print(f"Database error in get_summary_count: {str(e)}")
+        return jsonify({"error": "Database error occurred"}), 500
     except Exception as e:
-        print(f"Error getting summary count: {str(e)}")
+        print(f"Error in get_summary_count: {str(e)}")
         return jsonify({"error": "Failed to get summary count"}), 500
 
 @app.route('/summarize', methods=['POST', 'OPTIONS'])
