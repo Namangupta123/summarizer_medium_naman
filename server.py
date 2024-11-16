@@ -40,7 +40,7 @@ CORS(app,
 @app.after_request
 def after_request(response):
     origin = request.headers.get('Origin')
-    if origin:
+    if origin and origin in ["https://medium.com", "https://medium.com/","https://*.medium.com"]:
         response.headers['Access-Control-Allow-Origin'] = origin
     response.headers['Access-Control-Allow-Credentials'] = 'true'
     response.headers['Access-Control-Allow-Headers'] = 'Content-Type, Authorization, Accept, X-Requested-With'
@@ -48,7 +48,6 @@ def after_request(response):
     response.headers['Access-Control-Max-Age'] = '3600'
     response.headers['Access-Control-Expose-Headers'] = 'Content-Type, Authorization'
     
-    # Ensure OPTIONS requests return 200
     if request.method == 'OPTIONS':
         response.status_code = 200
         
@@ -366,7 +365,7 @@ def get_summary_count():
         return jsonify({"error": "Failed to get summary count"}), 500
 
 @app.route('/summarize', methods=['POST', 'OPTIONS'])
-@verify_token
+# @verify_token
 def summarize():
     if request.method == 'OPTIONS':
         return '', 204
