@@ -223,15 +223,36 @@ def verify_token(f):
     
     return decorated
 
+def get_remaining_summaries(email, conn):
+    """Calculate remaining summaries for a user"""
+    result = conn.execute(
+        text("SELECT * FROM users WHERE email = :email"),
+        {"email": email}
+    ).fetchone()
+    
+    if not result:
+        return None
+        
+    last_reset = result.last_reset.astimezone(IST)
+    current_time = datetime.now(IST)
+    
+    # Check if reset is needed
+    needs_reset = current_time - last_reset >= timedelta(days=1)
+    remaining = result.summary_count if not needs_reset else 5
+    
+    return {
+        'remaining': remaining,
+        'needs_reset': needs_reset,
+        'is_new_user': False
+    }
+
 def check_summary_limit(email):
     try:
         with engine.connect() as conn:
-            result = conn.execute(
-                text("SELECT * FROM users WHERE email = :email"),
-                {"email": email}
-            ).fetchone()
+            # Check if user exists
+            summary_info = get_remaining_summaries(email, conn)
             
-            if not result:
+            if summary_info is None:
                 # New user registration - they get 5 summaries
                 conn.execute(
                     text("""
@@ -252,12 +273,8 @@ def check_summary_limit(email):
                 
                 return True  # New user can make summaries
             
-            last_reset = result.last_reset.astimezone(IST)
-            current_time = datetime.now(IST)
-            
-            # If it's been a day since last reset
-            if current_time - last_reset >= timedelta(days=1):
-                # Reset the counter to 5
+            # Reset counter if needed
+            if summary_info['needs_reset']:
                 conn.execute(
                     text("""
                         UPDATE users 
@@ -268,18 +285,16 @@ def check_summary_limit(email):
                     {"email": email}
                 )
                 conn.commit()
-                return True  # User can make summaries after reset
+                return True
             
-            # If within the same day, check if they have summaries remaining
-            if result.summary_count > 0:
-                return True  # User has remaining summaries
-            return False  # No summaries remaining
+            # Check if they have summaries remaining
+            return summary_info['remaining'] > 0
             
     except Exception as e:
         print(f"Error checking summary limit: {str(e)}")
         return False
 
-def increment_summary_count(email):
+def decrement_summary_count(email):
     try:
         with engine.connect() as conn:
             conn.execute(
@@ -366,7 +381,7 @@ def summarize():
         )
         summary = response.invoke(input_data)
         
-        increment_summary_count(email)
+        decrement_summary_count(email)
         
         return jsonify({"summary": summary})
     except Exception as e:
