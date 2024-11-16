@@ -1,7 +1,7 @@
 import redis
 import hashlib
 import os
-from typing import Optional, Union
+from typing import Optional
 from redis.retry import Retry
 from redis.backoff import ExponentialBackoff
 from redis.exceptions import (
@@ -34,30 +34,34 @@ class RedisCache:
                 retries=self.MAX_RETRIES
             )
 
-            self._redis_client = redis.Redis(
-                host='redis-11377.c81.us-east-1-2.ec2.redns.redis-cloud.com',
-                port=11377,
-                password=os.getenv('REDIS_PASSWORD'),
-                ssl=True,
-                ssl_cert_reqs=None,
+            # Use redis:// for non-SSL and rediss:// for SSL connections
+            redis_url = f"rediss://:{os.getenv('REDIS_PASSWORD')}@redis-11377.c81.us-east-1-2.ec2.redns.redis-cloud.com:11377"
+            
+            self._redis_client = redis.from_url(
+                redis_url,
                 retry_on_timeout=True,
                 retry_on_error=[ConnectionError, TimeoutError],
                 retry=retry_strategy,
                 decode_responses=True,
                 socket_timeout=5,
                 socket_connect_timeout=5,
-                health_check_interval=30
+                health_check_interval=30,
+                ssl_cert_reqs=None  # Disable certificate verification
             )
+            
             # Test connection
             self._redis_client.ping()
             print("Redis Cloud connection established successfully")
         except RedisError as e:
             print(f"Failed to initialize Redis connection: {str(e)}")
+            self._redis_client = None  # Reset client on failure
             raise
 
     def _get_client(self) -> redis.Redis:
         """Get Redis client with connection check"""
         try:
+            if self._redis_client is None:
+                self._initialize_client()
             self._redis_client.ping()
             return self._redis_client
         except (ConnectionError, TimeoutError):
@@ -103,31 +107,35 @@ class RedisCache:
             return False
 
 # Global cache instance
-cache = RedisCache()
+_cache_instance = None
 
 def init_redis():
     """Initialize Redis connection"""
+    global _cache_instance
     try:
-        global cache
-        cache = RedisCache()
+        _cache_instance = RedisCache()
     except Exception as e:
         print(f"Redis initialization error: {str(e)}")
-        raise
+        _cache_instance = None
 
 def get_cached_summary(content: str) -> Optional[str]:
     """Get cached summary if it exists"""
+    if _cache_instance is None:
+        return None
     try:
-        cache_key = cache.generate_cache_key(content)
-        return cache.get(cache_key)
+        cache_key = _cache_instance.generate_cache_key(content)
+        return _cache_instance.get(cache_key)
     except Exception as e:
         print(f"Cache retrieval error: {str(e)}")
         return None
 
 def cache_summary(content: str, summary: str) -> bool:
     """Cache a summary with expiration"""
+    if _cache_instance is None:
+        return False
     try:
-        cache_key = cache.generate_cache_key(content)
-        return cache.set(cache_key, summary)
+        cache_key = _cache_instance.generate_cache_key(content)
+        return _cache_instance.set(cache_key, summary)
     except Exception as e:
         print(f"Cache storage error: {str(e)}")
         return False
