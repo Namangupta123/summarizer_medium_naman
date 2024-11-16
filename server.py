@@ -17,9 +17,8 @@ from datetime import datetime, timedelta
 import pytz
 from sendgrid import SendGridAPIClient
 from sendgrid.helpers.mail import Mail
-
 load_dotenv()
-
+userMail=None
 WSGIRequestHandler.protocol_version = "HTTP/1.1"
 app = Flask(__name__)
 
@@ -93,6 +92,7 @@ engine = create_engine(POSTGRES_URL)
 def init_db():
     try:
         with engine.connect() as conn:
+            # Create users table
             conn.execute(text("""
                 CREATE TABLE IF NOT EXISTS users (
                     email VARCHAR(255) PRIMARY KEY,
@@ -263,20 +263,26 @@ def verify_token(f):
     
     return decorated
 
-def check_summary_limit(email):
+def check_user_limit(email):
     try:
         with engine.connect() as conn:
             result = conn.execute(
-                text("SELECT * FROM users WHERE email = :email"),
+                text("""
+                    SELECT summary_count, last_reset
+                    FROM users 
+                    WHERE email = :email
+                """),
                 {"email": email}
             ).fetchone()
+            
+            current_time = datetime.now(IST)
             
             if not result:
                 # New user registration
                 conn.execute(
                     text("""
                         INSERT INTO users (email, summary_count, last_reset, welcome_email_sent) 
-                        VALUES (:email, 5, CURRENT_TIMESTAMP AT TIME ZONE 'Asia/Kolkata', FALSE)
+                        VALUES (:email, 4, CURRENT_TIMESTAMP AT TIME ZONE 'Asia/Kolkata', FALSE)
                     """),
                     {"email": email}
                 )
@@ -293,8 +299,8 @@ def check_summary_limit(email):
                 return True
             
             last_reset = result.last_reset.astimezone(IST)
-            current_time = datetime.now(IST)
             
+            # Reset count if 24 hours have passed
             if current_time - last_reset >= timedelta(days=1):
                 conn.execute(
                     text("""
@@ -311,10 +317,10 @@ def check_summary_limit(email):
             return result.summary_count > 0
             
     except Exception as e:
-        print(f"Error checking summary limit: {str(e)}")
+        print(f"Error checking user limit: {str(e)}")
         return False
 
-def increment_summary_count(email):
+def decrement_user_count(email):
     try:
         with engine.connect() as conn:
             conn.execute(
@@ -327,7 +333,7 @@ def increment_summary_count(email):
             )
             conn.commit()
     except Exception as e:
-        print(f"Error incrementing summary count: {str(e)}")
+        print(f"Error decrementing user count: {str(e)}")
 
 @app.route('/')
 def home():
@@ -340,7 +346,8 @@ def get_summary_count():
         email = request.user.get('email')
         if not email:
             return jsonify({"error": "Email not found in token"}), 400
-            
+        
+        userMail=email
         with engine.connect() as conn:
             result = conn.execute(
                 text("""
@@ -376,23 +383,43 @@ def get_summary_count():
         return jsonify({"error": "Failed to get summary count"}), 500
 
 @app.route('/summarize', methods=['POST', 'OPTIONS'])
-@verify_token
 def summarize():
     if request.method == 'OPTIONS':
         return '', 204
         
     try:
-        email = request.user.get('email')
-        if not check_summary_limit(email):
-            return jsonify({
-                "error": "Daily summary limit reached (5/5). Please try again tomorrow.",
-                "limit_reached": True
-            }), 429
-
         content = request.json.get('content')
         if not content:
             return jsonify({"error": "No content provided"}), 400
 
+        if not check_user_limit(userMail):
+            return jsonify({
+                "error": "Daily limit reached",
+                "limit_reached": True
+            }), 429
+        # Check for authentication (optional)
+        # auth_header = request.headers.get('Authorization')
+        # email = None
+        
+        # if auth_header:
+        #     try:
+        #         parts = auth_header.split()
+        #         if len(parts) == 2 and parts[0].lower() == 'bearer':
+        #             token = parts[1]
+        #             user_info = verify_google_token(token)
+        #             if user_info and 'email' in user_info:
+        #                 email = user_info['email']
+        #                 # Check user limit
+        #                 if not check_user_limit(email):
+        #                     return jsonify({
+        #                         "error": "Daily summary limit reached (5/5). Please try again tomorrow.",
+        #                         "limit_reached": True
+        #                     }), 429
+        #     except Exception as e:
+        #         print(f"Error processing authentication: {str(e)}")
+        #         # Continue without authentication if there's an error
+
+        # Generate summary
         input_data = {"content": content}
         response = (
             prompt
@@ -401,9 +428,12 @@ def summarize():
         )
         summary = response.invoke(input_data)
         
-        increment_summary_count(email)
+        # Decrement count if authenticated
+        # if email:
+        decrement_user_count(userMail)
         
         return jsonify({"summary": summary})
+        
     except Exception as e:
         return jsonify({"error": str(e)}), 500
     
