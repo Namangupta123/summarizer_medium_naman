@@ -389,7 +389,7 @@ def get_summary_count():
         return jsonify({"error": "Failed to get summary count"}), 500
 
 @app.route('/summarize', methods=['POST', 'OPTIONS'])
-@verify_token
+# @verify_token
 def summarize():
     if request.method == 'OPTIONS':
         return '', 204
