@@ -232,7 +232,7 @@ def check_summary_limit(email):
             ).fetchone()
             
             if not result:
-                # New user registration
+                # New user registration - they get 5 summaries
                 conn.execute(
                     text("""
                         INSERT INTO users (email, summary_count, last_reset, welcome_email_sent) 
@@ -250,12 +250,14 @@ def check_summary_limit(email):
                     )
                     conn.commit()
                 
-                return True
+                return True  # New user can make summaries
             
             last_reset = result.last_reset.astimezone(IST)
             current_time = datetime.now(IST)
             
+            # If it's been a day since last reset
             if current_time - last_reset >= timedelta(days=1):
+                # Reset the counter to 5
                 conn.execute(
                     text("""
                         UPDATE users 
@@ -266,9 +268,12 @@ def check_summary_limit(email):
                     {"email": email}
                 )
                 conn.commit()
-                return True
+                return True  # User can make summaries after reset
             
-            return result.summary_count > 0
+            # If within the same day, check if they have summaries remaining
+            if result.summary_count > 0:
+                return True  # User has remaining summaries
+            return False  # No summaries remaining
             
     except Exception as e:
         print(f"Error checking summary limit: {str(e)}")
@@ -320,10 +325,10 @@ def get_summary_count():
                 return jsonify({"count": 0, "limit": 5, "remaining": 5})
             
             current_count = result.current_count
-            
+            print(current_count)
             # Convert last_reset to IST before sending
             last_reset_ist = result.last_reset.astimezone(IST)
-            
+            print(last_reset_ist)
             return jsonify({
                 "count": 5 - current_count,
                 "limit": 5,
