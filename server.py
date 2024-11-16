@@ -23,36 +23,47 @@ load_dotenv()
 WSGIRequestHandler.protocol_version = "HTTP/1.1"
 app = Flask(__name__)
 
-# Updated CORS configuration with both Medium domains
-CORS(app, 
-     resources={
-         r"/*": {
-             "origins": ["https://medium.com", "https://*.medium.com", "chrome-extension://*"],
-             "methods": ["GET", "POST", "OPTIONS"],
-             "allow_headers": ["Content-Type", "Authorization", "Accept", "X-Requested-With"],
-             "supports_credentials": True,
-             "max_age": 3600,
-             "expose_headers": ["Content-Type", "Authorization"]
-         }
-     })
+# Configure CORS with specific origins
+ALLOWED_ORIGINS = [
+    "https://medium.com",
+    "https://*.medium.com",
+    "chrome-extension://*"
+]
 
-# Updated CORS headers handling
+# Basic CORS setup
+CORS(app, 
+     resources={r"/*": {
+         "origins": ALLOWED_ORIGINS,
+         "methods": ["GET", "POST", "OPTIONS"],
+         "allow_headers": ["Content-Type", "Authorization", "Accept", "X-Requested-With"],
+         "supports_credentials": True,
+         "max_age": 3600
+     }})
+
 @app.after_request
 def after_request(response):
-    origin = request.headers.get('Origin')
-    if origin and origin in ["https://medium.com", "https://medium.com/","https://*.medium.com"]:
-        response.headers['Access-Control-Allow-Origin'] = origin
-    response.headers['Access-Control-Allow-Credentials'] = 'true'
-    response.headers['Access-Control-Allow-Headers'] = 'Content-Type, Authorization, Accept, X-Requested-With'
-    response.headers['Access-Control-Allow-Methods'] = 'GET, POST, OPTIONS'
-    response.headers['Access-Control-Max-Age'] = '3600'
-    response.headers['Access-Control-Expose-Headers'] = 'Content-Type, Authorization'
+    origin = request.headers.get('Origin', '')
     
+    # Check if origin matches any allowed pattern
+    is_allowed = any(
+        origin == allowed or 
+        (allowed.startswith('https://*.') and origin.startswith('https://') and origin.endswith(allowed[9:])) or
+        (allowed.endswith('*') and origin.startswith(allowed[:-1]))
+        for allowed in ALLOWED_ORIGINS
+    )
+    
+    if is_allowed:
+        response.headers['Access-Control-Allow-Origin'] = origin
+        response.headers['Access-Control-Allow-Credentials'] = 'true'
+        response.headers['Access-Control-Allow-Methods'] = 'GET, POST, OPTIONS'
+        response.headers['Access-Control-Allow-Headers'] = 'Content-Type, Authorization, Accept, X-Requested-With'
+        response.headers['Access-Control-Max-Age'] = '3600'
+        response.headers['Access-Control-Expose-Headers'] = 'Content-Type, Authorization'
+        
     if request.method == 'OPTIONS':
         response.status_code = 200
         
     return response
-
 
 # Configure timezone
 IST = pytz.timezone('Asia/Kolkata')
@@ -365,7 +376,7 @@ def get_summary_count():
         return jsonify({"error": "Failed to get summary count"}), 500
 
 @app.route('/summarize', methods=['POST', 'OPTIONS'])
-# @verify_token
+@verify_token
 def summarize():
     if request.method == 'OPTIONS':
         return '', 204
