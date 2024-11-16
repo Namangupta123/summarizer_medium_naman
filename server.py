@@ -13,7 +13,7 @@ import requests as http_requests
 from werkzeug.serving import WSGIRequestHandler
 from langchain_openai import AzureChatOpenAI
 from sqlalchemy import create_engine, text
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, date
 import pytz
 from sendgrid import SendGridAPIClient
 from sendgrid.helpers.mail import Mail
@@ -60,7 +60,7 @@ def init_db():
                 CREATE TABLE IF NOT EXISTS users (
                     email VARCHAR(255) PRIMARY KEY,
                     summary_count INTEGER DEFAULT 5,
-                    last_reset TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
+                    last_reset DATE DEFAULT CURRENT_DATE,
                     welcome_email_sent BOOLEAN DEFAULT FALSE
                 )
             """))
@@ -233,11 +233,11 @@ def get_remaining_summaries(email, conn):
     if not result:
         return None
         
-    last_reset = result.last_reset.astimezone(IST)
-    current_time = datetime.now(IST)
+    current_date = datetime.now(IST).date()
+    last_reset_date = result.last_reset
     
-    # Check if reset is needed
-    needs_reset = current_time - last_reset >= timedelta(days=1)
+    # Check if reset is needed (different date)
+    needs_reset = current_date > last_reset_date
     remaining = result.summary_count if not needs_reset else 5
     
     return {
@@ -257,7 +257,7 @@ def check_summary_limit(email):
                 conn.execute(
                     text("""
                         INSERT INTO users (email, summary_count, last_reset, welcome_email_sent) 
-                        VALUES (:email, 5, CURRENT_TIMESTAMP AT TIME ZONE 'Asia/Kolkata', FALSE)
+                        VALUES (:email, 5, CURRENT_DATE, FALSE)
                     """),
                     {"email": email}
                 )
@@ -279,7 +279,7 @@ def check_summary_limit(email):
                     text("""
                         UPDATE users 
                         SET summary_count = 5, 
-                            last_reset = CURRENT_TIMESTAMP AT TIME ZONE 'Asia/Kolkata'
+                            last_reset = CURRENT_DATE
                         WHERE email = :email
                     """),
                     {"email": email}
@@ -307,7 +307,7 @@ def decrement_summary_count(email):
             )
             conn.commit()
     except Exception as e:
-        print(f"Error incrementing summary count: {str(e)}")
+        print(f"Error decrementing summary count: {str(e)}")
 
 @app.route('/')
 def home():
@@ -326,7 +326,7 @@ def get_summary_count():
                 text("""
                     SELECT summary_count, last_reset,
                     CASE 
-                        WHEN (CURRENT_TIMESTAMP AT TIME ZONE 'Asia/Kolkata' - last_reset) >= INTERVAL '1 day'
+                        WHEN CURRENT_DATE > last_reset
                         THEN 5
                         ELSE summary_count
                     END as current_count
@@ -340,15 +340,15 @@ def get_summary_count():
                 return jsonify({"count": 0, "limit": 5, "remaining": 5})
             
             current_count = result.current_count
-            print(current_count)
-            # Convert last_reset to IST before sending
-            last_reset_ist = result.last_reset.astimezone(IST)
-            print(last_reset_ist)
+            
+            # Format last_reset as date string
+            last_reset_date = result.last_reset.strftime('%Y-%m-%d')
+            
             return jsonify({
                 "count": 5 - current_count,
                 "limit": 5,
                 "remaining": current_count,
-                "last_reset": last_reset_ist.isoformat()
+                "last_reset": last_reset_date
             })
             
     except Exception as e:
