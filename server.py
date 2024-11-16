@@ -17,8 +17,12 @@ from datetime import datetime, timedelta
 import pytz
 from sendgrid import SendGridAPIClient
 from sendgrid.helpers.mail import Mail
+
 load_dotenv()
-userMail=None
+
+# Global variable to store user email
+current_user_email = None
+
 WSGIRequestHandler.protocol_version = "HTTP/1.1"
 app = Flask(__name__)
 
@@ -92,7 +96,6 @@ engine = create_engine(POSTGRES_URL)
 def init_db():
     try:
         with engine.connect() as conn:
-            # Create users table
             conn.execute(text("""
                 CREATE TABLE IF NOT EXISTS users (
                     email VARCHAR(255) PRIMARY KEY,
@@ -184,11 +187,6 @@ You are an expert summarization AI. Your role is to create well-structured HTML 
 {content}
 
 Ensure the summary is comprehensive yet concise, with proper semantic HTML structure throughout. 
-
-## Examples
-- **Example 1**: If summarizing a news article, the Main Summary should provide a brief overview of the event, Key Points should list the main facts, Important Details should provide context such as background information, and Key Takeaways should highlight the implications or future outlook.
-
-- **Example 2**: For a research paper, the Main Summary should encapsulate the research question and findings, Key Points should outline the methodology and results, Important Details should delve into the data analysis, and Key Takeaways should discuss the significance of the findings.
 """
 
 llm = AzureChatOpenAI(
@@ -237,6 +235,8 @@ def verify_google_token(token):
 def verify_token(f):
     @wraps(f)
     def decorated(*args, **kwargs):
+        global current_user_email
+        
         if request.method == 'OPTIONS':
             return '', 204
             
@@ -258,12 +258,16 @@ def verify_token(f):
         if 'email' not in user_info:
             return jsonify({'message': 'Email not found in token'}), 401
             
+        current_user_email = user_info['email']
         request.user = user_info
         return f(*args, **kwargs)
     
     return decorated
 
 def check_user_limit(email):
+    if not email:
+        return False
+        
     try:
         with engine.connect() as conn:
             result = conn.execute(
@@ -321,6 +325,9 @@ def check_user_limit(email):
         return False
 
 def decrement_user_count(email):
+    if not email:
+        return
+        
     try:
         with engine.connect() as conn:
             conn.execute(
@@ -343,11 +350,10 @@ def home():
 @verify_token
 def get_summary_count():
     try:
-        email = request.user.get('email')
+        email = current_user_email
         if not email:
-            return jsonify({"error": "Email not found in token"}), 400
+            return jsonify({"error": "Email not found"}), 400
         
-        userMail=email
         with engine.connect() as conn:
             result = conn.execute(
                 text("""
@@ -383,6 +389,7 @@ def get_summary_count():
         return jsonify({"error": "Failed to get summary count"}), 500
 
 @app.route('/summarize', methods=['POST', 'OPTIONS'])
+@verify_token
 def summarize():
     if request.method == 'OPTIONS':
         return '', 204
@@ -392,32 +399,11 @@ def summarize():
         if not content:
             return jsonify({"error": "No content provided"}), 400
 
-        if not check_user_limit(userMail):
+        if not check_user_limit(current_user_email):
             return jsonify({
                 "error": "Daily limit reached",
                 "limit_reached": True
             }), 429
-        # Check for authentication (optional)
-        # auth_header = request.headers.get('Authorization')
-        # email = None
-        
-        # if auth_header:
-        #     try:
-        #         parts = auth_header.split()
-        #         if len(parts) == 2 and parts[0].lower() == 'bearer':
-        #             token = parts[1]
-        #             user_info = verify_google_token(token)
-        #             if user_info and 'email' in user_info:
-        #                 email = user_info['email']
-        #                 # Check user limit
-        #                 if not check_user_limit(email):
-        #                     return jsonify({
-        #                         "error": "Daily summary limit reached (5/5). Please try again tomorrow.",
-        #                         "limit_reached": True
-        #                     }), 429
-        #     except Exception as e:
-        #         print(f"Error processing authentication: {str(e)}")
-        #         # Continue without authentication if there's an error
 
         # Generate summary
         input_data = {"content": content}
@@ -428,9 +414,8 @@ def summarize():
         )
         summary = response.invoke(input_data)
         
-        # Decrement count if authenticated
-        # if email:
-        decrement_user_count(userMail)
+        # Decrement count
+        decrement_user_count(current_user_email)
         
         return jsonify({"summary": summary})
         
