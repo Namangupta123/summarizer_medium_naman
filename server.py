@@ -27,14 +27,16 @@ app = Flask(__name__)
 CORS(app, 
      resources={
          r"/*": {
-             "origins": ["https://medium.com", "https://medium.com/*", "chrome-extension://*"],
+             "origins": ["https://medium.com", "https://*.medium.com", "chrome-extension://*"],
              "methods": ["GET", "POST", "OPTIONS"],
-             "allow_headers": ["Content-Type", "Authorization", "Accept"],
+             "allow_headers": ["Content-Type", "Authorization", "Accept", "Origin"],
              "supports_credentials": True,
              "expose_headers": ["Content-Type", "Authorization"],
-             "max_age": 3600
+             "max_age": 3600,
+             "vary_header": True
          }
      })
+
 
 @app.after_request
 def after_request(response):
