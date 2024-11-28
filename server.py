@@ -99,7 +99,8 @@ def send_welcome_email(email):
             '''
         )
         sg = SendGridAPIClient(os.environ.get("SEND_GRID_API"))
-        sg.send(message)
+        response=sg.send(message)
+        print("Status code for sendgrid: ",response.status_code)
         return True
     except Exception as e:
         print(f"Error sending welcome email: {str(e)}")
