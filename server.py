@@ -80,7 +80,7 @@ def send_welcome_email(email):
     try:
         message = Mail(
             from_email=os.getenv('FROM_EMAIL'),
-            to_emails=str(email),
+            to_emails=email,
             subject='Welcome to Medium Blog Summarizer!',
             html_content=f'''
                 <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
@@ -264,17 +264,18 @@ def check_summary_limit(email):
             
             if summary_info is None:
                 # New user registration - they get 5 summaries
+                send_welcome_email(email)
                 conn.execute(
                     text("""
                         INSERT INTO users (email, summary_count, last_reset, welcome_email_sent) 
-                        VALUES (:email, 5, CURRENT_DATE, FALSE)
+                        VALUES (:email, 5, CURRENT_DATE, TRUE)
                     """),
                     {"email": email}
                 )
                 conn.commit()
                 
                 # Send welcome email
-                if send_welcome_email(email):
+                '''if send_welcome_email(email):
                     conn.execute(
                         text("""
                             UPDATE users 
@@ -283,7 +284,7 @@ def check_summary_limit(email):
                         """),
                         {"email": email}
                     )
-                    conn.commit()
+                    conn.commit()'''
                 
                 return True  # New user can make summaries
             
