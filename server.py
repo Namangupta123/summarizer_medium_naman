@@ -33,7 +33,6 @@ IST = pytz.timezone('Asia/Kolkata')
 
 # SendGrid configuration
 SENDGRID_API_KEY = os.getenv('SEND_GRID_API')
-FROM_EMAIL = os.getenv('FROM_EMAIL')
 
 openai_endpoint = os.getenv("OPENAI_ENDPOINT")
 openai_api = os.getenv("OPENAI_API")
@@ -80,7 +79,7 @@ init_db()
 def send_welcome_email(email):
     try:
         message = Mail(
-            from_email=FROM_EMAIL,
+            from_email=os.getenv('FROM_EMAIL'),
             to_emails=email,
             subject='Welcome to Medium Blog Summarizer!',
             html_content=f'''
