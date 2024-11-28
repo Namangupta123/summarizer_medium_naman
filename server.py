@@ -80,7 +80,7 @@ def send_welcome_email(email):
     try:
         message = Mail(
             from_email=os.getenv('FROM_EMAIL'),
-            to_emails=email,
+            to_emails=str(email),
             subject='Welcome to Medium Blog Summarizer!',
             html_content=f'''
                 <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
@@ -275,7 +275,11 @@ def check_summary_limit(email):
                 # Send welcome email
                 if send_welcome_email(email):
                     conn.execute(
-                        text("UPDATE users SET welcome_email_sent = TRUE WHERE email = :email"),
+                        text("""
+                            UPDATE users 
+                            SET welcome_email_sent = TRUE 
+                            WHERE email = :email
+                        """),
                         {"email": email}
                     )
                     conn.commit()
