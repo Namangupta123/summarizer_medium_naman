@@ -275,16 +275,16 @@ def check_summary_limit(email):
                 conn.commit()
                 
                 # Send welcome email
-                '''if send_welcome_email(email):
-                    conn.execute(
-                        text("""
-                            UPDATE users 
-                            SET welcome_email_sent = TRUE 
-                            WHERE email = :email
-                        """),
-                        {"email": email}
-                    )
-                    conn.commit()'''
+                #if send_welcome_email(email):
+                #    conn.execute(
+                #        text("""
+                #            UPDATE users 
+                #            SET welcome_email_sent = TRUE 
+                #            WHERE email = :email
+                #        """),
+                #        {"email": email}
+                #    )
+                #    #conn.commit()
                 
                 return True  # New user can make summaries
             
