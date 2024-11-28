@@ -345,10 +345,11 @@ def get_summary_count():
             
             if not user:
                 # Create new user with default values
+                send_welcome_email(email)
                 conn.execute(
                     text("""
                         INSERT INTO users (email, summary_count, last_reset, welcome_email_sent)
-                        VALUES (:email, 5, CURRENT_DATE, FALSE)
+                        VALUES (:email, 5, CURRENT_DATE, TRUE)
                     """),
                     {"email": email}
                 )
