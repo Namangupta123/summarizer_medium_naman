@@ -1,6 +1,5 @@
 from sqlalchemy import create_engine, text, exc
 from datetime import datetime
-from supabase import create_client
 import os
 import pytz
 
@@ -15,16 +14,12 @@ if not SUPABASE_URL or not SUPABASE_KEY:
 
 # Format the connection URL for SQLAlchemy
 # Example Supabase URL format: postgresql://postgres:[PASSWORD]@db.[PROJECT_ID].supabase.co:5432/postgres
-# DATABASE_URL = "postgresql://postgres.lkwlziobvmfevjocxldl:Shyama2205@@aws-0-ap-south-1.pooler.supabase.com:6543/postgres"
-engine = create_client(SUPABASE_URL, SUPABASE_KEY)
+DATABASE_URL = os.getenv('DB_URL')
+engine = create_engine(DATABASE_URL)
 
 def init_db():
     try:
         with engine.connect() as conn:
-            # Drop the existing table if it exists
-            conn.execute(text("DROP TABLE IF EXISTS users"))
-            conn.commit()
-            
             # Create the table with the new schema
             conn.execute(text("""
                 CREATE TABLE users (
