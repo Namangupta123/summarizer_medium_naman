@@ -16,6 +16,7 @@ from datetime import datetime, timedelta, date
 import pytz
 from sendgrid import SendGridAPIClient
 from sendgrid.helpers.mail import Mail
+from sqlalchemy import create_engine, text, exc
 from src.db.database import (
     init_db, 
     check_summary_limit, 
