@@ -55,20 +55,29 @@ engine = create_engine(POSTGRES_URL)
 def init_db():
     try:
         with engine.connect() as conn:
-            # Drop the existing table if it exists
-            conn.execute(text("DROP TABLE IF EXISTS users"))
-            conn.commit()
-            
-            # Create the table with the new schema
-            conn.execute(text("""
-                CREATE TABLE users (
-                    email VARCHAR(255) PRIMARY KEY,
-                    summary_count INTEGER DEFAULT 5,
-                    last_reset DATE DEFAULT CURRENT_DATE,
-                    welcome_email_sent BOOLEAN DEFAULT FALSE
+            # Check if the 'users' table exists
+            result = conn.execute(text("""
+                SELECT EXISTS (
+                    SELECT FROM information_schema.tables 
+                    WHERE table_name = 'users'
                 )
             """))
-            conn.commit()
+            table_exists = result.scalar()  # Get the boolean result
+            
+            # If the table does not exist, create it
+            if not table_exists:
+                conn.execute(text("""
+                    CREATE TABLE users (
+                        email VARCHAR(255) PRIMARY KEY,
+                        summary_count INTEGER DEFAULT 5,
+                        last_reset DATE DEFAULT CURRENT_DATE,
+                        welcome_email_sent BOOLEAN DEFAULT FALSE
+                    )
+                """))
+                conn.commit()
+                print("Table 'users' created successfully.")
+            else:
+                print("Table 'users' already exists. No action taken.")
     except Exception as e:
         print(f"Database initialization error: {str(e)}")
         raise
