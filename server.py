@@ -29,7 +29,7 @@ CORS(app,
      max_age=3600)
 
 # Configure timezone
-IST = pytz.timezone('Asia/Kolkata')
+IST = pytz.timezone('UTC')
 
 # SendGrid configuration
 SENDGRID_API_KEY = os.getenv('SEND_GRID_API')
@@ -55,9 +55,6 @@ engine = create_engine(POSTGRES_URL)
 def init_db():
     try:
         with engine.connect() as conn:
-            # Set the timezone for the session to Asia/Kolkata
-            conn.execute(text("SET TIME ZONE 'Asia/Kolkata'"))
-            
             # Check if the 'users' table exists
             result = conn.execute(text("""
                 SELECT EXISTS (
