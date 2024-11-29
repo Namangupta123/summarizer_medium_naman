@@ -1,5 +1,6 @@
 from sqlalchemy import create_engine, text, exc
 from datetime import datetime
+from supabase import create_client
 import os
 import pytz
 
@@ -14,8 +15,8 @@ if not SUPABASE_URL or not SUPABASE_KEY:
 
 # Format the connection URL for SQLAlchemy
 # Example Supabase URL format: postgresql://postgres:[PASSWORD]@db.[PROJECT_ID].supabase.co:5432/postgres
-DATABASE_URL = "postgresql://postgres.lkwlziobvmfevjocxldl:Shyama2205@@aws-0-ap-south-1.pooler.supabase.com:6543/postgres"
-engine = create_engine(DATABASE_URL)
+# DATABASE_URL = "postgresql://postgres.lkwlziobvmfevjocxldl:Shyama2205@@aws-0-ap-south-1.pooler.supabase.com:6543/postgres"
+engine = create_client(SUPABASE_URL, SUPABASE_KEY)
 
 def init_db():
     try:
