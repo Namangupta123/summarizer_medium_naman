@@ -4,7 +4,7 @@ A Flask-based API that provides AI-powered summarization of content using Mistra
 
 ## Features
 
-- Content summarization using Mistral AI large language model
+- Content summarization using OpenAI Gpt-4 model
 - Google OAuth authentication
 - CORS support for Chrome extension
 - LangSmith integration for monitoring and debugging
@@ -14,7 +14,7 @@ A Flask-based API that provides AI-powered summarization of content using Mistra
 - Python 3.8+
 - Flask
 - LangChain
-- Mistral AI API key
+- OpenAI API key
 - Google OAuth credentials
 - LangSmith account (for monitoring)
 
